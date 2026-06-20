@@ -6,7 +6,9 @@ import type {
   ScreenPoint,
   CurvePoint,
   BackgroundStar,
-  LevelData
+  LevelData,
+  GameReport,
+  Rating
 } from './types';
 import { Renderer } from './renderer';
 import { getLevel, verifyEdge } from './api';
@@ -33,7 +35,7 @@ export class Game {
 
   private onLevelChange?: (level: LevelData) => void;
   private onProgressChange?: (current: number, total: number) => void;
-  private onComplete?: (desc: string) => void;
+  private onComplete?: (report: GameReport) => void;
 
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
@@ -49,7 +51,11 @@ export class Game {
       time: 0,
       showFrequencies: false,
       isComplete: false,
-      snapTargetId: null
+      snapTargetId: null,
+      wrongAttempts: 0,
+      undoCount: 0,
+      viewedFrequencies: false,
+      levelStartTime: performance.now()
     };
 
     this.resize();
@@ -69,7 +75,7 @@ export class Game {
   setCallbacks(callbacks: {
     onLevelChange?: (level: LevelData) => void;
     onProgressChange?: (current: number, total: number) => void;
-    onComplete?: (desc: string) => void;
+    onComplete?: (report: GameReport) => void;
   }): void {
     this.onLevelChange = callbacks.onLevelChange;
     this.onProgressChange = callbacks.onProgressChange;
@@ -229,6 +235,7 @@ export class Game {
           this.state.completedEdges.add(edgeKey);
           this.checkCompletion();
         } else {
+          this.state.wrongAttempts++;
           setTimeout(() => {
             this.removeConnection(startId, endId);
           }, 1500);
@@ -284,6 +291,64 @@ export class Game {
     }
   }
 
+  private calculateRating(
+    timeSeconds: number,
+    wrongAttempts: number,
+    undoCount: number,
+    viewedFrequencies: boolean,
+    totalEdges: number
+  ): Rating {
+    let score = 100;
+
+    const baseTime = totalEdges * 10;
+    if (timeSeconds > baseTime * 3) {
+      score -= 30;
+    } else if (timeSeconds > baseTime * 2) {
+      score -= 20;
+    } else if (timeSeconds > baseTime) {
+      score -= 10;
+    }
+
+    score -= wrongAttempts * 8;
+    score -= undoCount * 5;
+
+    if (viewedFrequencies) {
+      score -= 15;
+    }
+
+    score = Math.max(0, score);
+
+    if (score >= 90) return 'S';
+    if (score >= 75) return 'A';
+    if (score >= 60) return 'B';
+    if (score >= 40) return 'C';
+    return 'D';
+  }
+
+  private generateReport(): GameReport {
+    const timeSeconds = Math.round((performance.now() - this.state.levelStartTime) / 1000);
+    const correctConnections = this.state.completedEdges.size;
+    const totalEdges = this.state.levelData?.edges.length ?? 0;
+
+    const rating = this.calculateRating(
+      timeSeconds,
+      this.state.wrongAttempts,
+      this.state.undoCount,
+      this.state.viewedFrequencies,
+      totalEdges
+    );
+
+    return {
+      levelId: this.state.currentLevel,
+      timeSeconds,
+      correctConnections,
+      wrongAttempts: this.state.wrongAttempts,
+      undoCount: this.state.undoCount,
+      viewedFrequencies: this.state.viewedFrequencies,
+      rating
+    };
+  }
+
   private checkCompletion(): void {
     if (!this.state.levelData) return;
 
@@ -298,7 +363,8 @@ export class Game {
         clearTimeout(this.completionTimeoutId);
       }
       this.completionTimeoutId = setTimeout(() => {
-        this.onComplete?.(this.state.levelData!.creatureDescription);
+        const report = this.generateReport();
+        this.onComplete?.(report);
         this.completionTimeoutId = null;
       }, 1500);
     }
@@ -309,6 +375,8 @@ export class Game {
 
     const idx = this.state.connections.length - 1;
     const conn = this.state.connections[idx];
+
+    this.state.undoCount++;
 
     if (conn.valid) {
       const edgeKey = [conn.from, conn.to].sort().join('-');
@@ -345,11 +413,19 @@ export class Game {
     this.state.isComplete = false;
     this.state.drawState = this.createEmptyDrawState();
     this.state.snapTargetId = null;
+    this.state.wrongAttempts = 0;
+    this.state.undoCount = 0;
+    this.state.viewedFrequencies = false;
+    this.state.showFrequencies = false;
+    this.state.levelStartTime = performance.now();
     this.onProgressChange?.(0, this.state.levelData?.edges.length ?? 0);
   }
 
   toggleFrequencies(): boolean {
     this.state.showFrequencies = !this.state.showFrequencies;
+    if (this.state.showFrequencies) {
+      this.state.viewedFrequencies = true;
+    }
     return this.state.showFrequencies;
   }
 
@@ -371,6 +447,10 @@ export class Game {
     this.state.drawState = this.createEmptyDrawState();
     this.state.snapTargetId = null;
     this.state.showFrequencies = false;
+    this.state.wrongAttempts = 0;
+    this.state.undoCount = 0;
+    this.state.viewedFrequencies = false;
+    this.state.levelStartTime = performance.now();
 
     this.onLevelChange?.(data);
     this.onProgressChange?.(0, data.edges.length);

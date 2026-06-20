@@ -1,5 +1,5 @@
 import { Game } from './game';
-import type { LevelData } from './types';
+import type { LevelData, GameReport, LevelBestReport, Rating } from './types';
 import { healthCheck } from './api';
 
 const canvas = document.getElementById('gameCanvas') as HTMLCanvasElement;
@@ -14,7 +14,14 @@ const hintTitleEl = document.getElementById('hint-title')!;
 const hintTextEl = document.getElementById('hint-text')!;
 const completeModal = document.getElementById('complete-modal')!;
 const modalTitleEl = document.getElementById('modal-title')!;
-const modalDescEl = document.getElementById('modal-desc')!;
+const modalCreatureDescEl = document.getElementById('modal-creature-desc')!;
+const modalRatingEl = document.getElementById('modal-rating')!;
+const bestBadgeEl = document.getElementById('best-badge')!;
+const reportTimeEl = document.getElementById('report-time')!;
+const reportCorrectEl = document.getElementById('report-correct')!;
+const reportWrongEl = document.getElementById('report-wrong')!;
+const reportUndoEl = document.getElementById('report-undo')!;
+const reportHintEl = document.getElementById('report-hint')!;
 
 const btnUndo = document.getElementById('btn-undo') as HTMLButtonElement;
 const btnReset = document.getElementById('btn-reset') as HTMLButtonElement;
@@ -22,15 +29,66 @@ const btnHint = document.getElementById('btn-hint') as HTMLButtonElement;
 const btnNext = document.getElementById('btn-next') as HTMLButtonElement;
 
 const MAX_LEVELS = 3;
+const STORAGE_KEY = 'constellation_best_reports';
+
+const RATING_ORDER: Record<Rating, number> = {
+  'S': 5,
+  'A': 4,
+  'B': 3,
+  'C': 2,
+  'D': 1
+};
+
+function loadBestReports(): LevelBestReport {
+  try {
+    const data = localStorage.getItem(STORAGE_KEY);
+    return data ? JSON.parse(data) : {};
+  } catch {
+    return {};
+  }
+}
+
+function saveBestReports(reports: LevelBestReport): void {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(reports));
+  } catch (err) {
+    console.warn('保存最佳报告失败:', err);
+  }
+}
+
+function isBetterReport(newReport: GameReport, oldReport: GameReport | undefined): boolean {
+  if (!oldReport) return true;
+  if (RATING_ORDER[newReport.rating] !== RATING_ORDER[oldReport.rating]) {
+    return RATING_ORDER[newReport.rating] > RATING_ORDER[oldReport.rating];
+  }
+  if (newReport.timeSeconds !== oldReport.timeSeconds) {
+    return newReport.timeSeconds < oldReport.timeSeconds;
+  }
+  if (newReport.wrongAttempts !== oldReport.wrongAttempts) {
+    return newReport.wrongAttempts < oldReport.wrongAttempts;
+  }
+  return newReport.undoCount < oldReport.undoCount;
+}
+
+function formatTime(seconds: number): string {
+  if (seconds < 60) return `${seconds}秒`;
+  const mins = Math.floor(seconds / 60);
+  const secs = seconds % 60;
+  return secs > 0 ? `${mins}分${secs}秒` : `${mins}分钟`;
+}
+
+let currentLevelData: LevelData | null = null;
 
 game.setCallbacks({
   onLevelChange: (level: LevelData) => {
+    currentLevelData = level;
     levelNumEl.textContent = String(level.id);
     creatureNameEl.textContent = level.creatureName;
     totalCountEl.textContent = String(level.edges.length);
     connectedCountEl.textContent = '0';
     progressFillEl.style.width = '0%';
     completeModal.classList.remove('show');
+    bestBadgeEl.style.display = 'none';
 
     hintTitleEl.textContent = `关卡 ${level.id}: ${level.name}`;
     hintTextEl.textContent = '寻找闪烁频率成倍数关系的恒星，从一颗星拖动到另一颗星连接它们';
@@ -56,12 +114,34 @@ game.setCallbacks({
       }
     }
   },
-  onComplete: (desc: string) => {
+  onComplete: (report: GameReport) => {
     hintTitleEl.textContent = '✨ 星座完成 ✨';
     hintTextEl.textContent = '星界神话生物已显现！仔细欣赏它的光辉吧';
 
-    modalTitleEl.textContent = `✨ ${creatureNameEl.textContent} 降临 ✨`;
-    modalDescEl.textContent = desc;
+    modalTitleEl.childNodes[0].textContent = `✨ ${creatureNameEl.textContent} 降临 `;
+    modalCreatureDescEl.textContent = currentLevelData?.creatureDescription ?? '';
+
+    modalRatingEl.textContent = report.rating;
+    modalRatingEl.className = `rating-badge rating-${report.rating}`;
+
+    reportTimeEl.textContent = formatTime(report.timeSeconds);
+    reportCorrectEl.textContent = String(report.correctConnections);
+    reportWrongEl.textContent = String(report.wrongAttempts);
+    reportUndoEl.textContent = String(report.undoCount);
+    reportHintEl.textContent = report.viewedFrequencies ? '已查看' : '未查看';
+    reportHintEl.className = `report-value ${report.viewedFrequencies ? 'bad' : 'good'}`;
+
+    const bestReports = loadBestReports();
+    const oldBest = bestReports[report.levelId];
+    const isNewBest = isBetterReport(report, oldBest);
+    if (isNewBest) {
+      bestReports[report.levelId] = report;
+      saveBestReports(bestReports);
+      bestBadgeEl.style.display = 'inline-block';
+    } else {
+      bestBadgeEl.style.display = 'none';
+    }
+
     completeModal.classList.add('show');
 
     if (game.getCurrentLevel() >= MAX_LEVELS) {

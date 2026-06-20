@@ -77,6 +77,10 @@ export interface GameState {
   showFrequencies: boolean;
   isComplete: boolean;
   snapTargetId: string | null;
+  wrongAttempts: number;
+  undoCount: number;
+  viewedFrequencies: boolean;
+  levelStartTime: number;
 }
 
 export interface VerifyResult {
@@ -86,4 +90,20 @@ export interface VerifyResult {
   isDefinedEdge: boolean;
   frequencies?: Record<string, number>;
   ratio?: [number, number] | null;
+}
+
+export type Rating = 'S' | 'A' | 'B' | 'C' | 'D';
+
+export interface GameReport {
+  levelId: number;
+  timeSeconds: number;
+  correctConnections: number;
+  wrongAttempts: number;
+  undoCount: number;
+  viewedFrequencies: boolean;
+  rating: Rating;
+}
+
+export interface LevelBestReport {
+  [levelId: number]: GameReport;
 }

@@ -99,25 +99,89 @@
         background: rgba(10, 15, 40, 0.95);
         border: 2px solid rgba(160, 196, 255, 0.5);
         border-radius: 20px;
-        padding: 40px 60px;
+        padding: 32px 48px;
         text-align: center;
         pointer-events: auto;
         transition: transform 0.5s ease;
+        max-width: 520px;
       }
       #complete-modal.show {
         transform: translate(-50%, -50%) scale(1);
       }
       #complete-modal h2 {
-        font-size: 32px;
+        font-size: 28px;
         color: #ffd700;
-        margin-bottom: 16px;
+        margin-bottom: 8px;
         text-shadow: 0 0 20px rgba(255, 215, 0, 0.5);
       }
-      #complete-modal p {
-        font-size: 16px;
+      #modal-creature-desc {
+        font-size: 14px;
         color: #a0c4ff;
-        margin-bottom: 24px;
+        margin-bottom: 20px;
         line-height: 1.6;
+        font-style: italic;
+      }
+      .rating-badge {
+        display: inline-block;
+        font-size: 64px;
+        font-weight: bold;
+        padding: 8px 32px;
+        border-radius: 16px;
+        margin-bottom: 20px;
+        text-shadow: 0 0 30px currentColor;
+        animation: pulse 1.5s ease-in-out infinite;
+      }
+      .rating-S { color: #ffd700; background: rgba(255, 215, 0, 0.1); border: 2px solid rgba(255, 215, 0, 0.5); }
+      .rating-A { color: #ff9f43; background: rgba(255, 159, 67, 0.1); border: 2px solid rgba(255, 159, 67, 0.5); }
+      .rating-B { color: #54a0ff; background: rgba(84, 160, 255, 0.1); border: 2px solid rgba(84, 160, 255, 0.5); }
+      .rating-C { color: #5f27cd; background: rgba(95, 39, 205, 0.1); border: 2px solid rgba(95, 39, 205, 0.5); }
+      .rating-D { color: #8395a7; background: rgba(131, 149, 167, 0.1); border: 2px solid rgba(131, 149, 167, 0.5); }
+      @keyframes pulse {
+        0%, 100% { transform: scale(1); }
+        50% { transform: scale(1.05); }
+      }
+      .report-container {
+        background: rgba(0, 0, 0, 0.3);
+        border-radius: 12px;
+        padding: 16px 24px;
+        margin-bottom: 20px;
+        text-align: left;
+      }
+      .report-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 6px 0;
+        border-bottom: 1px solid rgba(160, 196, 255, 0.1);
+      }
+      .report-row:last-child {
+        border-bottom: none;
+      }
+      .report-label {
+        color: #a0c4ff;
+        font-size: 14px;
+      }
+      .report-value {
+        color: #fff;
+        font-size: 14px;
+        font-weight: bold;
+      }
+      .report-value.good { color: #1dd1a1; }
+      .report-value.bad { color: #ff6b6b; }
+      .best-report-badge {
+        display: inline-block;
+        background: linear-gradient(135deg, #ffd700, #ff9f43);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        font-size: 12px;
+        font-weight: bold;
+        margin-left: 8px;
+        animation: shine 2s ease-in-out infinite;
+      }
+      @keyframes shine {
+        0%, 100% { opacity: 0.7; }
+        50% { opacity: 1; }
       }
       #buttons-container {
         position: absolute;
@@ -152,8 +216,31 @@
         <button class="btn" id="btn-hint">显示频率</button>
       </div>
       <div id="complete-modal">
-        <h2 id="modal-title">✨ 星座完成 ✨</h2>
-        <p id="modal-desc"></p>
+        <h2 id="modal-title">✨ 星座完成 ✨<span class="best-report-badge" id="best-badge" style="display:none;">🏆 新纪录!</span></h2>
+        <p id="modal-creature-desc"></p>
+        <div class="rating-badge" id="modal-rating">S</div>
+        <div class="report-container">
+          <div class="report-row">
+            <span class="report-label">⏱ 用时</span>
+            <span class="report-value" id="report-time">0秒</span>
+          </div>
+          <div class="report-row">
+            <span class="report-label">✨ 正确连线</span>
+            <span class="report-value good" id="report-correct">0</span>
+          </div>
+          <div class="report-row">
+            <span class="report-label">❌ 错误次数</span>
+            <span class="report-value bad" id="report-wrong">0</span>
+          </div>
+          <div class="report-row">
+            <span class="report-label">↩ 撤销次数</span>
+            <span class="report-value" id="report-undo">0</span>
+          </div>
+          <div class="report-row">
+            <span class="report-label">👁 查看频率</span>
+            <span class="report-value" id="report-hint">未查看</span>
+          </div>
+        </div>
         <button class="btn" id="btn-next">下一关</button>
       </div>
     </div>
